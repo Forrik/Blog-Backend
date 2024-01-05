@@ -1,15 +1,24 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
 import mongoose from 'mongoose';
 import {
-    validationResult
-} from 'express-validator';
+    registerValidation,
+    loginValidation,
+    postCreateValidation
+} from './validations.js';
+import checkAuth from './utils/checkAuth.js';
 import {
-    registerValidation
-} from './validations/auth.js';
-import userModel from './models/User.js';
+    register,
+    login,
+    getMe
+} from './controllers/UserController.js';
 
+import {
+    create,
+    getAll,
+    getOne,
+    remove,
+    update
+} from './controllers/PostController.js';
 
 mongoose.connect('mongodb+srv://admin:wwwwww@cluster0.vksn84v.mongodb.net/blog?retryWrites=true&w=majority')
     .then(() => console.log('Подключение к базе данных успешно выполнено!'))
@@ -20,102 +29,22 @@ const app = express();
 
 app.use(express.json());
 
-app.post('/auth/login', async (req, res) => {
-    try {
+app.post('/auth/login', loginValidation, login)
 
-        const user = await userModel.findOne({
-            email: req.body.email
-        });
+app.post('/auth/register', registerValidation, register)
 
-        if (!user) {
-            return res.status(404).json({
-                message: 'Пользователь не найден'
-            })
-        }
+app.get('/auth/me', checkAuth, getMe)
 
-        const isValidPassword = await bcrypt.compare(req.body.password, user._doc.passwordHash);
+app.post('/posts', checkAuth, postCreateValidation, create);
 
-        if (!isValidPassword) {
-            return res.status(404).json({
-                message: 'Неверный логин или пароль'
-            })
-        }
+app.get('/posts', getAll);
 
-        const token = jwt.sign({
+app.get('/posts/:id', getOne)
 
-                _id: user._id,
-            },
-            'secret123', {
-                expiresIn: '30d'
-            }
-        )
+app.delete('/posts/:id', checkAuth, remove)
 
-        const {
-            passwordHash,
-            ...userData
-        } = user._doc;
+app.patch('/posts/:id', checkAuth, postCreateValidation, update)
 
-        res.json({
-            ...userData,
-            token
-        });
-
-    } catch (err) {
-        console.log(err);
-        res.status(500).json({
-            message: 'Не удалось авторизоваться'
-        })
-
-    }
-})
-
-app.post('/auth/register', registerValidation, async (req, res) => {
-    try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                errors: errors.array(),
-                message: 'Некорректные данные при регистрации'
-
-            })
-        }
-
-        const password = req.body.password;
-        const salt = await bcrypt.genSalt(10);
-        const hash = await bcrypt.hash(password, salt);
-
-        const doc = new userModel({
-            email: req.body.email,
-            fullName: req.body.fullName,
-            avatarUrl: req.body.avatarUrl,
-            passwordHash: hash,
-        })
-
-        const user = await doc.save();
-
-        const token = jwt.sign({
-
-            _id: user._id,
-        }, 'secret123', {
-            expiresIn: '30d'
-        }, )
-
-        const {
-            passwordHash,
-            ...userData
-        } = user._doc;
-
-        res.json({
-            ...userData,
-            token
-        });
-    } catch (err) {
-        console.log(err);
-        res.status(500).json({
-            message: 'Не удалось зарегистрироваться'
-        })
-    }
-})
 
 app.listen(4444, (err) => {
     if (err) {
