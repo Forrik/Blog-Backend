@@ -10,7 +10,10 @@ import checkAuth from './utils/checkAuth.js';
 import {
     register,
     login,
-    getMe
+    getMe,
+    updateUser,
+    deleteUser,
+    getUsers
 } from './controllers/UserController.js';
 
 import {
@@ -18,11 +21,13 @@ import {
     getAll,
     getOne,
     remove,
-    update
+    update,
+    getLastTags
 } from './controllers/PostController.js';
 import handleValidationErrors from './utils/handleValidationErrors.js';
+import cors from 'cors'
 
-mongoose.connect('mongodb+srv://admin:wwwwww@cluster0.vksn84v.mongodb.net/blog?retryWrites=true&w=majority')
+mongoose.connect('mongodb+srv://admin:wwwwww@cluster0.vksn84v.mongodb.net/?retryWrites=true&w=majority')
     .then(() => console.log('Подключение к базе данных успешно выполнено!'))
     .catch((err) => console.log('Произошла ошибка', err));
 
@@ -40,7 +45,7 @@ const storage = multer.diskStorage({
 const upload = multer({
     storage,
 })
-
+app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
@@ -50,9 +55,15 @@ app.post('/upload', checkAuth, upload.single('image'), (req, res) => {
     })
 })
 
+app.get('/tags', getLastTags)
+
 app.post('/auth/login', loginValidation, handleValidationErrors, login)
 app.post('/auth/register', registerValidation, handleValidationErrors, register)
 app.get('/auth/me', checkAuth, getMe)
+app.patch('/auth/me', checkAuth, upload.single('image'), handleValidationErrors, updateUser)
+app.delete('/user/:id', checkAuth, deleteUser)
+app.get('/users', getUsers)
+
 app.post('/posts', checkAuth, postCreateValidation, handleValidationErrors, create);
 app.get('/posts', getAll);
 app.get('/posts/:id', getOne)
@@ -64,5 +75,5 @@ app.listen(4444, (err) => {
     if (err) {
         return console.log('Произошла ошибка', err);
     }
-    console.log('Сервер запущен на порту 3000');
+    console.log('Сервер запущен на порту 4444');
 });
